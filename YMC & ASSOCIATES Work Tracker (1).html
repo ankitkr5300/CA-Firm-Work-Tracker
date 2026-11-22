@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>YMC &amp; ASSOCIATES Work Tracker</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--tx:#1d2733;--mut:#6b7684;--bd:#e3e0d8;--pri:#1f4e79;--pritx:#fff;--ok:#1e7a46;--okbg:#e2f3e9;--wa:#9a5b00;--wabg:#fdf0d8;--bad:#b3261e;--badbg:#fbe4e2;--inf:#1f4e79;--infbg:#e1ecf7;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14181d;--card:#1d232b;--tx:#e8ebef;--mut:#99a3b0;--bd:#2d3540;--pri:#5b9bd5;--pritx:#0d1520;--ok:#6fd09a;--okbg:#17342500;--wa:#f0b45a;--wabg:#3a2d12;--bad:#f2928b;--badbg:#3d1c1a;--inf:#8dbbe6;--infbg:#1b2b3d;color-scheme:dark}}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--pri);color:var(--pritx);padding:14px 20px}
+header h1{margin:0;font:600 18px Georgia,serif}header small{opacity:.8}
+nav{display:flex;gap:4px;padding:10px 16px 0;overflow-x:auto;border-bottom:1px solid var(--bd);background:var(--card)}
+nav button{border:0;background:none;color:var(--mut);padding:10px 14px;font:inherit;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+nav button.on{color:var(--pri);border-color:var(--pri)}
+main{max-width:1100px;margin:0 auto;padding:18px 16px 60px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px}
+.stat b{display:block;font-size:28px;font-family:Georgia,serif}.stat span{color:var(--mut);font-size:13px}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:16px}
+.panel h2{margin:0 0 10px;font-size:15px}
+.two{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.bar .sp{flex:1}
+select,input,textarea{font:inherit;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx);max-width:100%}
+textarea{width:100%;min-height:70px}
+.btn{background:var(--pri);color:var(--pritx);border:0;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+.btn.g{background:none;color:var(--pri);border:1px solid var(--bd)}.btn.s{padding:4px 9px;font-size:13px}.btn.d{background:none;color:var(--bad);border:1px solid var(--bd)}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+th,td{padding:8px 8px;border-bottom:1px solid var(--bd);vertical-align:top}
+tr.od td:first-child{box-shadow:inset 3px 0 var(--bad)}
+.b{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:600}
+.Pending{background:var(--wabg);color:var(--wa)}.In-Progress{background:var(--infbg);color:var(--inf)}.Completed{background:var(--okbg);color:var(--ok)}
+.High{background:var(--badbg);color:var(--bad)}.Medium{background:var(--wabg);color:var(--wa)}.Low{background:var(--infbg);color:var(--inf)}
+.mut{color:var(--mut)}.empty{padding:22px;text-align:center;color:var(--mut)}
+.ov{position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
+.md{background:var(--card);border-radius:12px;padding:18px;width:100%;max-width:460px;max-height:90vh;overflow:auto}
+.md h3{margin:0 0 12px}.md label{display:block;font-size:13px;color:var(--mut);margin:10px 0 3px}.md input,.md select{width:100%}
+.md .act{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+</style>
+</head>
+<body>
+<header><h1>CA Firm Work Tracker</h1><small>Client-wise daily records, pending tasks and team progress</small></header>
+<nav id="nav"></nav>
+<main id="v"></main>
+<div id="m"></div>
+<script>
+const K='cafirm_v1';let db={clients:[],emps:[],tasks:[],logs:[]};
+try{const s=localStorage.getItem(K);if(s)db=Object.assign(db,JSON.parse(s))}catch(e){}
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(db))}catch(e){}};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const fmt=d=>d?new Date(d+'T00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'—';
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cn=id=>(db.clients.find(c=>c.id==id)||{}).name||'—',en=id=>(db.emps.find(c=>c.id==id)||{}).name||'—';
+const WT=['GST Return','Income Tax Return','TDS/TCS','Audit','ROC/MCA Filing','Bookkeeping','Accounting','Notice/Appeal','Payroll/PF/ESI','Other'];
+const TABS=[['dash','Dashboard'],['tasks','Pending Tasks'],['log','Daily Work Log'],['clients','Clients'],['team','Team']];
+let tab='dash',f={ts:'Open',tc:'',te:'',ld:today(),le:'',lc:''};
+const opt=(arr,sel,all)=>(all!=null?`<option value="">${all}</option>`:'')+arr.map(a=>{const[v,l]=Array.isArray(a)?a:[a,a];return`<option value="${esc(v)}"${v==sel?' selected':''}>${esc(l)}</option>`}).join('');
+const cOpts=()=>db.clients.map(c=>[c.id,c.name]),eOpts=()=>db.emps.map(c=>[c.id,c.name]);
+const isOd=t=>t.status!=='Completed'&&t.due&&t.due<today();
+
+function form(title,fields,vals,onSave){
+  vals=vals||{};
+  m.innerHTML=`<div class="ov"><div class="md"><h3>${title}</h3>${fields.map(x=>{
+    const v=vals[x.k]!=null?vals[x.k]:(x.def||'');let i;
+    if(x.t==='select')i=`<select id="f_${x.k}">${opt(x.o,v)}</select>`;
+    else if(x.t==='area')i=`<textarea id="f_${x.k}">${esc(v)}</textarea>`;
+    else i=`<input id="f_${x.k}" type="${x.t||'text'}" value="${esc(v)}"${x.t==='number'?' step="0.25" min="0"':''}>`;
+    return`<label>${x.l}${x.r?' *':''}</label>${i}`}).join('')}
+    <div class="act"><button class="btn g" onclick="closeM()">Cancel</button><button class="btn" id="sv">Save</button></div></div></div>`;
+  document.getElementById('sv').onclick=()=>{
+    const o={};for(const x of fields){o[x.k]=document.getElementById('f_'+x.k).value.trim();if(x.r&&!o[x.k]){alert('Please fill: '+x.l);return}}
+    onSave(o);save();closeM();render()};
+}
+const closeM=()=>{m.innerHTML=''};
+
+function needBase(){if(!db.clients.length){alert('Please add a client first (Clients tab).');return true}if(!db.emps.length){alert('Please add team members first (Team tab).');return true}return false}
+
+function taskForm(id){
+  if(needBase())return;const t=db.tasks.find(x=>x.id===id);
+  form(t?'Edit task':'New task',[
+    {k:'client',l:'Client',t:'select',o:cOpts(),r:1},{k:'type',l:'Work type',t:'select',o:WT},
+    {k:'title',l:'Task details',r:1},{k:'emp',l:'Assigned to',t:'select',o:eOpts(),r:1},
+    {k:'due',l:'Due date',t:'date'},{k:'priority',l:'Priority',t:'select',o:['High','Medium','Low'],def:'Medium'},
+    {k:'status',l:'Status',t:'select',o:['Pending','In Progress','Completed'],def:'Pending'}],t,
+    o=>{if(t)Object.assign(t,o);else db.tasks.push({id:uid(),created:today(),...o})});
+}
+function completeTask(id){
+  const t=db.tasks.find(x=>x.id===id);
+  form('Mark complete',[{k:'emp',l:'Completed by',t:'select',o:eOpts(),def:t.emp,r:1},{k:'date',l:'Date completed',t:'date',def:today(),r:1},
+    {k:'hours',l:'Hours spent',t:'number'},{k:'note',l:'Notes (optional)',t:'area'}],{emp:t.emp},
+    o=>{t.status='Completed';t.completedOn=o.date;t.completedBy=o.emp;
+      db.logs.push({id:uid(),date:o.date,client:t.client,emp:o.emp,work:t.type+': '+t.title+(o.note?' ('+o.note+')':''),hours:o.hours,task:t.id})});
+}
+function logForm(id){
+  if(needBase())return;const l=db.logs.find(x=>x.id===id);
+  form(l?'Edit entry':'Add work done',[{k:'date',l:'Date',t:'date',def:today(),r:1},{k:'client',l:'Client',t:'select',o:cOpts(),r:1},
+    {k:'emp',l:'Done by (employee)',t:'select',o:eOpts(),r:1},{k:'work',l:'Work done',t:'area',r:1},{k:'hours',l:'Hours spent',t:'number'}],l,
+    o=>{if(l)Object.assign(l,o);else db.logs.push({id:uid(),...o})});
+}
+function clientForm(id){
+  const c=db.clients.find(x=>x.id===id);
+  form(c?'Edit client':'New client',[{k:'name',l:'Client name',r:1},{k:'type',l:'Type',t:'select',o:['Individual','Proprietorship','Partnership/LLP','Company','Trust/Other']},
+    {k:'pan',l:'PAN / GSTIN'},{k:'contact',l:'Contact person / phone'},{k:'notes',l:'Notes',t:'area'}],c,
+    o=>{if(c)Object.assign(c,o);else db.clients.push({id:uid(),...o})});
+}
+function empForm(){form('Add team member',[{k:'name',l:'Employee name',r:1},{k:'role',l:'Role (e.g. Article, Accountant)'}],null,o=>db.emps.push({id:uid(),...o}))}
+function del(k,id,msg){if(confirm(msg||'Delete this record?')){db[k]=db[k].filter(x=>x.id!==id);if(k==='clients'){db.tasks=db.tasks.filter(x=>x.client!==id);db.logs=db.logs.filter(x=>x.client!==id)}save();render()}}
+function clientView(id){
+  const c=db.clients.find(x=>x.id===id),ts=db.tasks.filter(t=>t.client===id),ls=db.logs.filter(l=>l.client===id).sort((a,b)=>b.date.localeCompare(a.date));
+  m.innerHTML=`<div class="ov"><div class="md" style="max-width:620px"><h3>${esc(c.name)}</h3><div class="mut">${esc(c.type||'')} ${c.pan?'· '+esc(c.pan):''} ${c.contact?'· '+esc(c.contact):''}</div>
+  <h4>Open tasks</h4>${ts.filter(t=>t.status!=='Completed').map(t=>`<div>${isOd(t)?'⚠ ':''}${esc(t.type)}: ${esc(t.title)} <span class="mut">· ${esc(en(t.emp))} · due ${fmt(t.due)}</span></div>`).join('')||'<div class="mut">None</div>'}
+  <h4>Work history</h4>${ls.slice(0,25).map(l=>`<div>${fmt(l.date)} — ${esc(l.work)} <span class="mut">· ${esc(en(l.emp))}${l.hours?' · '+esc(l.hours)+'h':''}</span></div>`).join('')||'<div class="mut">No work recorded yet</div>'}
+  <div class="act"><button class="btn" onclick="closeM()">Close</button></div></div></div>`;
+}
+
+function taskRows(list){return list.length?`<div class="tw"><table><tr><th>Due</th><th>Client</th><th>Work</th><th>Assigned</th><th>Priority</th><th>Status</th><th></th></tr>${list.map(t=>`<tr class="${isOd(t)?'od':''}"><td>${fmt(t.due)}${isOd(t)?'<br><span class="b High">Overdue</span>':''}</td><td>${esc(cn(t.client))}</td><td><b>${esc(t.type)}</b><br>${esc(t.title)}</td><td>${esc(en(t.emp))}</td><td><span class="b ${t.priority}">${t.priority}</span></td><td><span class="b ${t.status.replace(' ','-')}">${t.status}</span>${t.completedOn?'<br><span class="mut">'+fmt(t.completedOn)+' by '+esc(en(t.completedBy))+'</span>':''}</td><td style="white-space:nowrap">${t.status!=='Completed'?`<button class="btn s" onclick="completeTask('${t.id}')">Complete</button> `:''}<button class="btn g s" onclick="taskForm('${t.id}')">Edit</button> <button class="btn d s" onclick="del('tasks','${t.id}')">✕</button></td></tr>`).join('')}</table></div>`:'<div class="empty">No tasks found.</div>'}
+
+const V={
+dash(){
+  const td=today(),open=db.tasks.filter(t=>t.status!=='Completed'),dl=db.logs.filter(l=>l.date===td);
+  const hrs=dl.reduce((a,l)=>a+(+l.hours||0),0);
+  return`<div class="grid"><div class="stat"><b>${open.length}</b><span>Pending tasks</span></div><div class="stat"><b style="color:var(--bad)">${open.filter(isOd).length}</b><span>Overdue</span></div>
+  <div class="stat"><b>${dl.length}</b><span>Work entries today</span></div><div class="stat"><b>${hrs}</b><span>Hours logged today</span></div><div class="stat"><b>${db.clients.length}</b><span>Clients</span></div></div>
+  <div class="two"><div class="panel"><h2>Today’s work (${fmt(td)})</h2>${dl.length?`<div class="tw"><table>${dl.map(l=>`<tr><td><b>${esc(cn(l.client))}</b><br>${esc(l.work)}</td><td>${esc(en(l.emp))}</td></tr>`).join('')}</table></div>`:'<div class="empty">Nothing logged today yet.</div>'}</div>
+  <div class="panel"><h2>Team workload</h2>${db.emps.length?`<div class="tw"><table><tr><th>Employee</th><th>Pending</th><th>Done today</th></tr>${db.emps.map(e=>`<tr><td>${esc(e.name)}</td><td>${open.filter(t=>t.emp===e.id).length}</td><td>${dl.filter(l=>l.emp===e.id).length}</td></tr>`).join('')}</table></div>`:'<div class="empty">Add team members in the Team tab.</div>'}</div></div>
+  <div class="panel"><h2>Client-wise pending work</h2>${db.clients.length?`<div class="tw"><table><tr><th>Client</th><th>Pending</th><th>Overdue</th><th>Next due</th></tr>${db.clients.map(c=>{const o=open.filter(t=>t.client===c.id),nd=o.map(t=>t.due).filter(Boolean).sort()[0];return`<tr><td><a href="#" onclick="clientView('${c.id}');return false">${esc(c.name)}</a></td><td>${o.length}</td><td>${o.filter(isOd).length}</td><td>${fmt(nd)}</td></tr>`}).join('')}</table></div>`:'<div class="empty">Start by adding your clients.</div>'}</div>`},
+tasks(){
+  let l=db.tasks.filter(t=>(f.ts==='Open'?t.status!=='Completed':f.ts==='All'||t.status===f.ts)&&(!f.tc||t.client===f.tc)&&(!f.te||t.emp===f.te));
+  l.sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
+  return`<div class="bar"><select onchange="f.ts=this.value;render()">${opt(['Open','Pending','In Progress','Completed','All'],f.ts)}</select>
+  <select onchange="f.tc=this.value;render()">${opt(cOpts(),f.tc,'All clients')}</select><select onchange="f.te=this.value;render()">${opt(eOpts(),f.te,'All employees')}</select>
+  <span class="sp"></span><button class="btn" onclick="taskForm()">+ New task</button></div><div class="panel">${taskRows(l)}</div>`},
+log(){
+  let l=db.logs.filter(x=>(!f.ld||x.date===f.ld)&&(!f.le||x.emp===f.le)&&(!f.lc||x.client===f.lc)).sort((a,b)=>b.date.localeCompare(a.date));
+  const h=l.reduce((a,x)=>a+(+x.hours||0),0);
+  return`<div class="bar"><input type="date" value="${f.ld}" onchange="f.ld=this.value;render()"><button class="btn g s" onclick="f.ld='';render()">All dates</button>
+  <select onchange="f.lc=this.value;render()">${opt(cOpts(),f.lc,'All clients')}</select><select onchange="f.le=this.value;render()">${opt(eOpts(),f.le,'All employees')}</select>
+  <span class="sp"></span><button class="btn" onclick="logForm()">+ Add work done</button></div>
+  <div class="panel">${l.length?`<div class="mut" style="margin-bottom:8px">${l.length} entries · ${h} hours</div><div class="tw"><table><tr><th>Date</th><th>Client</th><th>Work done</th><th>Done by</th><th>Hrs</th><th></th></tr>${l.map(x=>`<tr><td>${fmt(x.date)}</td><td>${esc(cn(x.client))}</td><td>${esc(x.work)}</td><td>${esc(en(x.emp))}</td><td>${esc(x.hours||'')}</td><td style="white-space:nowrap"><button class="btn g s" onclick="logForm('${x.id}')">Edit</button> <button class="btn d s" onclick="del('logs','${x.id}')">✕</button></td></tr>`).join('')}</table></div>`:'<div class="empty">No work recorded for this selection.</div>'}</div>`},
+clients(){
+  return`<div class="bar"><span class="sp"></span><button class="btn" onclick="clientForm()">+ New client</button></div><div class="panel">${db.clients.length?`<div class="tw"><table><tr><th>Client</th><th>Type</th><th>PAN / GSTIN</th><th>Contact</th><th>Pending</th><th></th></tr>${db.clients.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.type||'')}</td><td>${esc(c.pan||'')}</td><td>${esc(c.contact||'')}</td><td>${db.tasks.filter(t=>t.client===c.id&&t.status!=='Completed').length}</td><td style="white-space:nowrap"><button class="btn s" onclick="clientView('${c.id}')">Open</button> <button class="btn g s" onclick="clientForm('${c.id}')">Edit</button> <button class="btn d s" onclick="del('clients','${c.id}','Delete this client and all its tasks and work records?')">✕</button></td></tr>`).join('')}</table></div>`:'<div class="empty">No clients yet.</div>'}</div>`},
+team(){
+  return`<div class="bar"><span class="sp"></span><button class="btn" onclick="empForm()">+ Add team member</button></div><div class="panel">${db.emps.length?`<div class="tw"><table><tr><th>Name</th><th>Role</th><th>Pending</th><th>Total entries</th><th></th></tr>${db.emps.map(e=>`<tr><td><b>${esc(e.name)}</b></td><td>${esc(e.role||'')}</td><td>${db.tasks.filter(t=>t.emp===e.id&&t.status!=='Completed').length}</td><td>${db.logs.filter(l=>l.emp===e.id).length}</td><td><button class="btn d s" onclick="del('emps','${e.id}','Remove this team member? Past records will show a dash for the name.')">✕</button></td></tr>`).join('')}</table></div>`:'<div class="empty">Add the people who do the work.</div>'}</div>`}
+};
+function render(){
+  nav.innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('');
+  v.innerHTML=V[tab]();
+}
+const nav=document.getElementById('nav'),v=document.getElementById('v'),m=document.getElementById('m');
+render();
+</script>
+</body>
+</html>
